@@ -21,8 +21,9 @@ setup differs.
 ./mvnw spring-boot:run
 ```
 
-The app starts on port `8084` (override with `SERVER_PORT`). On first run, `DataLoader` seeds
-the four roles (`ROLE_ADMIN`, `ROLE_TEACHER`, `ROLE_STUDENT`, `ROLE_PARENT`).
+The app starts on port `8084` (override with `PORT` — the same env var most PaaS hosts inject
+automatically). On first run, `DataLoader` seeds the four roles (`ROLE_ADMIN`, `ROLE_TEACHER`,
+`ROLE_STUDENT`, `ROLE_PARENT`).
 
 ## Running the tests
 
@@ -98,6 +99,30 @@ you're only setting `DB_URL` / `DB_USERNAME` / `DB_PASSWORD`, not adding a new i
    the direct connection string instead and you can drop that parameter.
 3. Treat the password as a secret: never commit it, and if one is ever pasted somewhere it
    shouldn't be (a chat, a PR, a log), reset it from the Neon console immediately.
+
+### Deploying to Render
+
+No Docker involved — Render's native Java runtime just runs Maven and the resulting jar
+directly. [`render.yaml`](render.yaml) defines the service as a Blueprint:
+
+```
+buildCommand: ./mvnw clean package -DskipTests
+startCommand: java -jar target/*.jar
+```
+
+Render injects `PORT` itself, which `application.properties` already binds to, so no extra
+config is needed for that.
+
+1. Push this repo to GitHub (see above), then in the Render dashboard choose **New → Blueprint**
+   and point it at the repo — it picks up `render.yaml` automatically.
+2. The blueprint declares `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, and
+   `CORS_ALLOWED_ORIGINS` as unset (`sync: false`) on purpose — Render will prompt you to fill
+   these in through its dashboard during setup rather than storing them in the repo. Use the
+   Neon values from the section above.
+3. Every push to `main` redeploys automatically once the service is created.
+
+If you'd rather not use a Blueprint, the same two commands (`buildCommand` / `startCommand`)
+can be pasted directly into a manually-created Render Web Service instead.
 
 ## Security notes
 
