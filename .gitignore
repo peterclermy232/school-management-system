@@ -37,3 +37,7 @@ build/
 
 ### Node ###
 node_modules/
+
+### Env files (never commit real secrets) ###
+.env
+.env.local

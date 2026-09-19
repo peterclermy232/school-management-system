@@ -70,6 +70,35 @@ there's no schema migration tool wired up yet. Introducing Flyway or Liquibase a
 this to `validate` is a recommended next step before relying on this in a long-lived
 production database.
 
+A copy-pasteable template for all of the above lives in [`.env.example`](.env.example) — copy
+it to `.env` (already gitignored) or paste the values into your host's environment variable
+settings.
+
+### Using Neon Postgres
+
+Neon is just Postgres, so the existing `org.postgresql.Driver` config works unchanged —
+you're only setting `DB_URL` / `DB_USERNAME` / `DB_PASSWORD`, not adding a new integration.
+
+1. In the [Neon console](https://console.neon.tech), open your project, pick the `production`
+   branch, and copy the **pooled** connection string (`Connect` → `Pooled connection`).
+2. Convert it to a JDBC URL and drop `channel_binding` (that's a `psql`/libpq-only parameter
+   pgjdbc doesn't recognize — `sslmode=require` alone already forces TLS):
+
+   ```
+   psql string:  postgresql://neondb_owner:PASSWORD@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   DB_URL:       jdbc:postgresql://ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require&prepareThreshold=0
+   DB_USERNAME:  neondb_owner
+   DB_PASSWORD:  PASSWORD
+   ```
+
+   `prepareThreshold=0` disables pgjdbc's server-side prepared statement caching, which is
+   required when connecting through Neon's pooled endpoint (PgBouncer in transaction mode) —
+   without it you'll eventually hit `prepared statement "..." already exists` errors under
+   load. If you ever need the non-pooled endpoint (e.g. for a one-off migration tool), use
+   the direct connection string instead and you can drop that parameter.
+3. Treat the password as a secret: never commit it, and if one is ever pasted somewhere it
+   shouldn't be (a chat, a PR, a log), reset it from the Neon console immediately.
+
 ## Security notes
 
 - Public self-signup (`POST /api/auth/signup`) can only create `STUDENT` or `PARENT`
