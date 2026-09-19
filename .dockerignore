@@ -1,0 +1,9 @@
+target/
+.git/
+.idea/
+.mvn/wrapper/maven-wrapper.jar
+node_modules/
+.env
+.env.local
+*.iml
+.DS_Store

@@ -102,13 +102,10 @@ you're only setting `DB_URL` / `DB_USERNAME` / `DB_PASSWORD`, not adding a new i
 
 ### Deploying to Render
 
-No Docker involved — Render's native Java runtime just runs Maven and the resulting jar
-directly. [`render.yaml`](render.yaml) defines the service as a Blueprint:
-
-```
-buildCommand: ./mvnw clean package -DskipTests
-startCommand: java -jar target/*.jar
-```
+Render has no native Java runtime, so it builds and runs this app from the [`Dockerfile`](Dockerfile)
+in this repo — you don't need Docker installed locally or interact with it directly; Render
+builds and runs the image for you. [`render.yaml`](render.yaml) defines the service as a
+Blueprint pointing at that Dockerfile.
 
 Render injects `PORT` itself, which `application.properties` already binds to, so no extra
 config is needed for that.
@@ -121,8 +118,8 @@ config is needed for that.
    Neon values from the section above.
 3. Every push to `main` redeploys automatically once the service is created.
 
-If you'd rather not use a Blueprint, the same two commands (`buildCommand` / `startCommand`)
-can be pasted directly into a manually-created Render Web Service instead.
+If you'd rather not use a Blueprint, create a Web Service manually, choose the **Docker**
+language/environment, and Render will pick up the same `Dockerfile` automatically.
 
 ## Security notes
 
