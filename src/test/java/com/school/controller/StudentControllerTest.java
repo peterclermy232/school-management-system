@@ -2,6 +2,7 @@ package com.school.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.school.dto.StudentDTO;
+import com.school.security.ParentAccessService;
 import com.school.service.StudentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,9 @@ class StudentControllerTest {
 
     @MockBean
     private StudentService studentService;
+
+    @MockBean
+    private ParentAccessService parentAccessService;
 
     private StudentDTO sampleStudent() {
         StudentDTO dto = new StudentDTO();
@@ -79,6 +83,39 @@ class StudentControllerTest {
     @Test
     void getStudentById_otherStudentsRecord_asStudent_returns403() throws Exception {
         mockMvc.perform(get("/api/students/2").with(asUser(1L, "jdoe", "STUDENT")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAllStudents_asAccountant_returns200() throws Exception {
+        when(studentService.getAllStudents()).thenReturn(List.of(sampleStudent()));
+
+        mockMvc.perform(get("/api/students").with(asUser(9L, "accountant1", "ACCOUNTANT")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getAllStudents_asPrincipal_returns200() throws Exception {
+        when(studentService.getAllStudents()).thenReturn(List.of(sampleStudent()));
+
+        mockMvc.perform(get("/api/students").with(asUser(9L, "principal1", "PRINCIPAL")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getStudentById_ownChild_asParent_returns200() throws Exception {
+        when(studentService.getStudentById(1L)).thenReturn(Optional.of(sampleStudent()));
+        when(parentAccessService.isParentOf(20L, 1L)).thenReturn(true);
+
+        mockMvc.perform(get("/api/students/1").with(asUser(20L, "parent1", "PARENT")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getStudentById_otherParentsChild_asParent_returns403() throws Exception {
+        when(parentAccessService.isParentOf(20L, 1L)).thenReturn(false);
+
+        mockMvc.perform(get("/api/students/1").with(asUser(20L, "parent1", "PARENT")))
                 .andExpect(status().isForbidden());
     }
 

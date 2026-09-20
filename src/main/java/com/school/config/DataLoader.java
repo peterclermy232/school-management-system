@@ -18,13 +18,14 @@ public class DataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Initialize roles if they don't exist
-        if (roleRepository.count() == 0) {
-            roleRepository.save(new Role(ERole.ROLE_ADMIN));
-            roleRepository.save(new Role(ERole.ROLE_TEACHER));
-            roleRepository.save(new Role(ERole.ROLE_STUDENT));
-            roleRepository.save(new Role(ERole.ROLE_PARENT));
-            logger.info("Roles initialized successfully!");
+        // Seed any role that doesn't exist yet, per-role rather than an all-or-nothing count
+        // check, so adding a new ERole value still gets backfilled on an already-seeded
+        // (e.g. already-deployed) database instead of being silently skipped.
+        for (ERole role : ERole.values()) {
+            if (roleRepository.findByName(role).isEmpty()) {
+                roleRepository.save(new Role(role));
+                logger.info("Seeded missing role: {}", role);
+            }
         }
     }
 }

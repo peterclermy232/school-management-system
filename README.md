@@ -1,8 +1,16 @@
 # School Management System
 
-A Spring Boot REST API for managing students, teachers, classes, subjects, grades and
-attendance, with JWT-based authentication and role-based access control (Admin / Teacher /
-Student / Parent).
+A Spring Boot REST API for managing students, teachers, classes, subjects, grades,
+attendance and fee payments, with JWT-based authentication and role-based access control
+(Admin / Teacher / Student / Parent / Accountant / Principal / Deputy Principal).
+
+Ownership is enforced, not just role: a teacher can only mark attendance or enter grades for
+their own class/subject (`TeacherAccessService`), and a parent can only read their own linked
+children's records (`ParentAccessService`). Accountant, Principal and Deputy Principal are
+plain roles on a `User` (no dedicated entity) — provision them via `POST /api/users` and
+`PUT /api/users/{id}/roles` (admin-only). Parent accounts are the one role backed by a real
+entity (`Parent`, linked to `Student`s via `POST /api/parents/{parentId}/children/{studentId}`),
+since it's the only one that needs an actual relationship rather than just a permission.
 
 ## Tech stack
 

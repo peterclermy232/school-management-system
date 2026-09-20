@@ -4,9 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.school.dto.LoginRequest;
 import com.school.dto.SignupRequest;
 import com.school.entity.ERole;
+import com.school.entity.Parent;
 import com.school.entity.Role;
+import com.school.entity.Student;
 import com.school.entity.User;
+import com.school.repository.ParentRepository;
 import com.school.repository.RoleRepository;
+import com.school.repository.StudentRepository;
 import com.school.repository.UserRepository;
 import com.school.security.UserDetailsImpl;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,8 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -52,6 +58,12 @@ class AuthControllerTest {
 
     @MockBean
     private RoleRepository roleRepository;
+
+    @MockBean
+    private StudentRepository studentRepository;
+
+    @MockBean
+    private ParentRepository parentRepository;
 
     @Test
     void signin_validCredentials_returnsJwt() throws Exception {
@@ -139,6 +151,7 @@ class AuthControllerTest {
         when(userRepository.existsByUsername("jdoe")).thenReturn(false);
         when(userRepository.existsByEmail("jdoe@example.com")).thenReturn(false);
         when(roleRepository.findByName(ERole.ROLE_PARENT)).thenReturn(Optional.of(new Role(ERole.ROLE_PARENT)));
+        when(parentRepository.save(any(Parent.class))).thenAnswer(inv -> inv.getArgument(0));
 
         SignupRequest request = validSignupRequest();
         request.setRole(Set.of("parent"));
@@ -149,6 +162,73 @@ class AuthControllerTest {
                 .andExpect(status().isOk());
 
         verify(roleRepository).findByName(ERole.ROLE_PARENT);
+    }
+
+    @Test
+    void signup_parentRole_persistsAsParentNotBareUser() throws Exception {
+        when(userRepository.existsByUsername("jdoe")).thenReturn(false);
+        when(userRepository.existsByEmail("jdoe@example.com")).thenReturn(false);
+        when(roleRepository.findByName(ERole.ROLE_PARENT)).thenReturn(Optional.of(new Role(ERole.ROLE_PARENT)));
+        when(parentRepository.save(any(Parent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SignupRequest request = validSignupRequest();
+        request.setRole(Set.of("parent"));
+
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(parentRepository).save(any(Parent.class));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void signup_parentRoleWithChildStudentId_linksTheChildImmediately() throws Exception {
+        Student child = new Student();
+        child.setId(42L);
+        child.setStudentId("STU-042");
+
+        when(userRepository.existsByUsername("jdoe")).thenReturn(false);
+        when(userRepository.existsByEmail("jdoe@example.com")).thenReturn(false);
+        when(roleRepository.findByName(ERole.ROLE_PARENT)).thenReturn(Optional.of(new Role(ERole.ROLE_PARENT)));
+        when(studentRepository.findByStudentId("STU-042")).thenReturn(Optional.of(child));
+        when(parentRepository.save(any(Parent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SignupRequest request = validSignupRequest();
+        request.setRole(Set.of("parent"));
+        request.setChildStudentId("STU-042");
+
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        var captor = forClass(Parent.class);
+        verify(parentRepository).save(captor.capture());
+        assertThat(captor.getValue().getChildren()).extracting(Student::getId).containsExactly(42L);
+    }
+
+    @Test
+    void signup_parentRoleWithUnknownChildStudentId_stillSucceedsUnlinked() throws Exception {
+        when(userRepository.existsByUsername("jdoe")).thenReturn(false);
+        when(userRepository.existsByEmail("jdoe@example.com")).thenReturn(false);
+        when(roleRepository.findByName(ERole.ROLE_PARENT)).thenReturn(Optional.of(new Role(ERole.ROLE_PARENT)));
+        when(studentRepository.findByStudentId("GHOST")).thenReturn(Optional.empty());
+        when(parentRepository.save(any(Parent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SignupRequest request = validSignupRequest();
+        request.setRole(Set.of("parent"));
+        request.setChildStudentId("GHOST");
+
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        var captor = forClass(Parent.class);
+        verify(parentRepository).save(captor.capture());
+        assertThat(captor.getValue().getChildren()).isEmpty();
     }
 
     private SignupRequest validSignupRequest() {

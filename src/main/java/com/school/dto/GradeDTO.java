@@ -1,6 +1,7 @@
 package com.school.dto;
 
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 
 public class GradeDTO {
     private Long id;
@@ -25,6 +26,7 @@ public class GradeDTO {
     private Double maxMarks;
 
     private String grade;
+    private LocalDate examDate;
     private String remarks;
 
     // Constructors
@@ -57,6 +59,9 @@ public class GradeDTO {
 
     public String getGrade() { return grade; }
     public void setGrade(String grade) { this.grade = grade; }
+
+    public LocalDate getExamDate() { return examDate; }
+    public void setExamDate(LocalDate examDate) { this.examDate = examDate; }
 
     public String getRemarks() { return remarks; }
     public void setRemarks(String remarks) { this.remarks = remarks; }

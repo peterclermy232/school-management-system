@@ -22,14 +22,16 @@ import com.school.dto.SignupRequest;
 import com.school.dto.JwtResponse;
 import com.school.dto.MessageResponse;
 import com.school.entity.ERole;
+import com.school.entity.Parent;
 import com.school.entity.Role;
 import com.school.entity.User;
+import com.school.repository.ParentRepository;
 import com.school.repository.RoleRepository;
+import com.school.repository.StudentRepository;
 import com.school.repository.UserRepository;
 
 import com.school.security.UserDetailsImpl;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,6 +49,12 @@ public class AuthController {
 
     @Autowired
     RoleRepository roleRepository;
+
+    @Autowired
+    StudentRepository studentRepository;
+
+    @Autowired
+    ParentRepository parentRepository;
 
     @Autowired
     PasswordEncoder encoder;
@@ -99,39 +107,37 @@ public class AuthController {
                     .body(new MessageResponse("Error: Email is already in use!"));
         }
 
-        // Create new user's account
-        User user = new User(signUpRequest.getUsername(),
-                signUpRequest.getEmail(),
-                encoder.encode(signUpRequest.getPassword()),
-                signUpRequest.getFirstName(),
-                signUpRequest.getLastName());
+        // Public self-signup may only grant STUDENT or PARENT. Admin/teacher/staff accounts are
+        // provisioned separately (by an authenticated admin, via StudentService/TeacherService/
+        // UserService) so this endpoint can't be used to self-escalate to a privileged role.
+        Set<String> strRoles = signUpRequest.getRole();
+        boolean isParent = strRoles != null && strRoles.contains("parent");
 
+        // A parent needs to be persisted as a Parent (not a bare User) to participate in the
+        // JOINED inheritance hierarchy and be linkable to their children via ParentRepository.
+        User user = isParent ? new Parent() : new User();
+        user.setUsername(signUpRequest.getUsername());
+        user.setEmail(signUpRequest.getEmail());
+        user.setPassword(encoder.encode(signUpRequest.getPassword()));
+        user.setFirstName(signUpRequest.getFirstName());
+        user.setLastName(signUpRequest.getLastName());
         user.setPhoneNumber(signUpRequest.getPhoneNumber());
         user.setAddress(signUpRequest.getAddress());
 
-        // Public self-signup may only grant STUDENT or PARENT. Admin/teacher accounts are
-        // provisioned separately (by an authenticated admin, via StudentService/TeacherService)
-        // so this endpoint can't be used to self-escalate to a privileged role.
-        Set<String> strRoles = signUpRequest.getRole();
-        Set<Role> roles = new HashSet<>();
+        Role assignedRole = roleRepository.findByName(isParent ? ERole.ROLE_PARENT : ERole.ROLE_STUDENT)
+                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+        user.setRoles(Set.of(assignedRole));
 
-        if (strRoles == null || strRoles.isEmpty()) {
-            roles.add(roleRepository.findByName(ERole.ROLE_STUDENT)
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found.")));
+        if (isParent) {
+            Parent parent = (Parent) user;
+            if (signUpRequest.getChildStudentId() != null && !signUpRequest.getChildStudentId().isBlank()) {
+                studentRepository.findByStudentId(signUpRequest.getChildStudentId())
+                        .ifPresent(student -> parent.getChildren().add(student));
+            }
+            parentRepository.save(parent);
         } else {
-            strRoles.forEach(role -> {
-                if ("parent".equals(role)) {
-                    roles.add(roleRepository.findByName(ERole.ROLE_PARENT)
-                            .orElseThrow(() -> new RuntimeException("Error: Role is not found.")));
-                } else {
-                    roles.add(roleRepository.findByName(ERole.ROLE_STUDENT)
-                            .orElseThrow(() -> new RuntimeException("Error: Role is not found.")));
-                }
-            });
+            userRepository.save(user);
         }
-
-        user.setRoles(roles);
-        userRepository.save(user);
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }

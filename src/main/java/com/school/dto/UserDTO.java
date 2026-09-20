@@ -2,42 +2,42 @@ package com.school.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.Set;
 
-public class SignupRequest {
+public class UserDTO {
+    private Long id;
+
     @NotBlank
-    @Size(min = 3, max = 20)
     private String username;
 
     @NotBlank
-    @Size(max = 50)
     @Email
     private String email;
 
-    private Set<String> role;
-
-    @NotBlank
-    @Size(min = 6, max = 40)
+    // Only used as input on creation; never populated when converting an entity to this DTO.
     private String password;
 
     @NotBlank
-    @Size(max = 50)
     private String firstName;
 
     @NotBlank
-    @Size(max = 50)
     private String lastName;
 
     private String phoneNumber;
     private String address;
 
-    // Only used when role is "parent" — if it matches an existing student, the new Parent
-    // account is linked to that student immediately instead of requiring an admin to do it
-    // afterward via ParentController.
-    private String childStudentId;
+    // Role names without the "ROLE_" prefix, e.g. "ACCOUNTANT", "PRINCIPAL".
+    @NotEmpty
+    private Set<String> roles;
+
+    // Constructors
+    public UserDTO() {}
 
     // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
 
@@ -59,9 +59,6 @@ public class SignupRequest {
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
 
-    public Set<String> getRole() { return this.role; }
-    public void setRole(Set<String> role) { this.role = role; }
-
-    public String getChildStudentId() { return childStudentId; }
-    public void setChildStudentId(String childStudentId) { this.childStudentId = childStudentId; }
+    public Set<String> getRoles() { return roles; }
+    public void setRoles(Set<String> roles) { this.roles = roles; }
 }

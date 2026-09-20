@@ -17,29 +17,33 @@ public class GradeController {
     @Autowired
     private GradeService gradeService;
 
+    private static final String STAFF_READ = "hasRole('ADMIN') or hasRole('TEACHER') or hasRole('PRINCIPAL') or hasRole('DEPUTY_PRINCIPAL')";
+    private static final String OWN_RECORD_READ = " or (hasRole('STUDENT') and #studentId == authentication.principal.id)"
+            + " or (hasRole('PARENT') and @parentAccessService.isParentOf(authentication.principal.id, #studentId))";
+
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize(STAFF_READ)
     public ResponseEntity<List<GradeDTO>> getAllGrades() {
         List<GradeDTO> grades = gradeService.getAllGrades();
         return ResponseEntity.ok(grades);
     }
 
     @GetMapping("/student/{studentId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or (hasRole('STUDENT') and #studentId == authentication.principal.id)")
+    @PreAuthorize(STAFF_READ + OWN_RECORD_READ)
     public ResponseEntity<List<GradeDTO>> getGradesByStudentId(@PathVariable Long studentId) {
         List<GradeDTO> grades = gradeService.getGradesByStudentId(studentId);
         return ResponseEntity.ok(grades);
     }
 
     @GetMapping("/subject/{subjectId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize(STAFF_READ)
     public ResponseEntity<List<GradeDTO>> getGradesBySubjectId(@PathVariable Long subjectId) {
         List<GradeDTO> grades = gradeService.getGradesBySubjectId(subjectId);
         return ResponseEntity.ok(grades);
     }
 
     @GetMapping("/student/{studentId}/subject/{subjectId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or (hasRole('STUDENT') and #studentId == authentication.principal.id)")
+    @PreAuthorize(STAFF_READ + OWN_RECORD_READ)
     public ResponseEntity<List<GradeDTO>> getGradesByStudentIdAndSubjectId(
             @PathVariable Long studentId, @PathVariable Long subjectId) {
         List<GradeDTO> grades = gradeService.getGradesByStudentIdAndSubjectId(studentId, subjectId);
@@ -47,14 +51,14 @@ public class GradeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('TEACHER') and @teacherAccessService.ownsSubject(authentication.principal.id, #gradeDTO.subjectId))")
     public ResponseEntity<GradeDTO> createGrade(@Valid @RequestBody GradeDTO gradeDTO) {
         GradeDTO createdGrade = gradeService.createGrade(gradeDTO);
         return ResponseEntity.ok(createdGrade);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('TEACHER') and @teacherAccessService.ownsGradeSubject(authentication.principal.id, #id))")
     public ResponseEntity<GradeDTO> updateGrade(@PathVariable Long id, @Valid @RequestBody GradeDTO gradeDTO) {
         try {
             GradeDTO updatedGrade = gradeService.updateGrade(id, gradeDTO);
@@ -65,14 +69,14 @@ public class GradeController {
     }
 
     @GetMapping("/student/{studentId}/average")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or (hasRole('STUDENT') and #studentId == authentication.principal.id)")
+    @PreAuthorize(STAFF_READ + OWN_RECORD_READ)
     public ResponseEntity<Double> getAverageMarksByStudentId(@PathVariable Long studentId) {
         Double average = gradeService.getAverageMarksByStudentId(studentId);
         return ResponseEntity.ok(average != null ? average : 0.0);
     }
 
     @GetMapping("/student/{studentId}/subject/{subjectId}/average")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or (hasRole('STUDENT') and #studentId == authentication.principal.id)")
+    @PreAuthorize(STAFF_READ + OWN_RECORD_READ)
     public ResponseEntity<Double> getAverageMarksByStudentIdAndSubjectId(
             @PathVariable Long studentId, @PathVariable Long subjectId) {
         Double average = gradeService.getAverageMarksByStudentIdAndSubjectId(studentId, subjectId);

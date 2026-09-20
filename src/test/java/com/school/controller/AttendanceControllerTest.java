@@ -3,6 +3,8 @@ package com.school.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.school.dto.AttendanceDTO;
 import com.school.entity.AttendanceStatus;
+import com.school.security.ParentAccessService;
+import com.school.security.TeacherAccessService;
 import com.school.service.AttendanceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,12 @@ class AttendanceControllerTest {
     @MockBean
     private AttendanceService attendanceService;
 
+    @MockBean
+    private TeacherAccessService teacherAccessService;
+
+    @MockBean
+    private ParentAccessService parentAccessService;
+
     private AttendanceDTO sampleAttendance() {
         AttendanceDTO dto = new AttendanceDTO();
         dto.setId(1L);
@@ -55,12 +63,37 @@ class AttendanceControllerTest {
     }
 
     @Test
-    void markAttendance_asTeacher_returns200() throws Exception {
+    void markAttendance_teacherOwnsStudentClass_returns200() throws Exception {
         AttendanceDTO dto = sampleAttendance();
+        when(teacherAccessService.ownsStudentClass(5L, 1L)).thenReturn(true);
         when(attendanceService.markAttendance(any(AttendanceDTO.class))).thenReturn(dto);
 
         mockMvc.perform(post("/api/attendance")
                         .with(asUser(5L, "teacher1", "TEACHER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void markAttendance_teacherDoesNotOwnStudentClass_returns403() throws Exception {
+        AttendanceDTO dto = sampleAttendance();
+        when(teacherAccessService.ownsStudentClass(5L, 1L)).thenReturn(false);
+
+        mockMvc.perform(post("/api/attendance")
+                        .with(asUser(5L, "teacher1", "TEACHER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void markAttendance_asAdmin_bypassesOwnershipCheck_returns200() throws Exception {
+        AttendanceDTO dto = sampleAttendance();
+        when(attendanceService.markAttendance(any(AttendanceDTO.class))).thenReturn(dto);
+
+        mockMvc.perform(post("/api/attendance")
+                        .with(asUser(9L, "admin", "ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
@@ -75,6 +108,31 @@ class AttendanceControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAttendanceByStudentId_ownChild_asParent_returns200() throws Exception {
+        when(parentAccessService.isParentOf(20L, 1L)).thenReturn(true);
+        when(attendanceService.getAttendanceByStudentId(1L)).thenReturn(List.of(sampleAttendance()));
+
+        mockMvc.perform(get("/api/attendance/student/1").with(asUser(20L, "parent1", "PARENT")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getAttendanceByStudentId_otherParentsChild_asParent_returns403() throws Exception {
+        when(parentAccessService.isParentOf(20L, 1L)).thenReturn(false);
+
+        mockMvc.perform(get("/api/attendance/student/1").with(asUser(20L, "parent1", "PARENT")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAllAttendance_asPrincipal_returns200() throws Exception {
+        when(attendanceService.getAllAttendance()).thenReturn(List.of(sampleAttendance()));
+
+        mockMvc.perform(get("/api/attendance").with(asUser(9L, "principal1", "PRINCIPAL")))
+                .andExpect(status().isOk());
     }
 
     @Test

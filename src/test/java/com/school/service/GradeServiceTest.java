@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -139,6 +140,25 @@ class GradeServiceTest {
         assertThatThrownBy(() -> gradeService.updateGrade(5L, new GradeDTO()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Grade not found");
+    }
+
+    @Test
+    void createGrade_persistsExamDate() {
+        GradeDTO dto = new GradeDTO();
+        dto.setStudentId(1L);
+        dto.setSubjectId(2L);
+        dto.setExamType("Final");
+        dto.setMarks(85.0);
+        dto.setMaxMarks(100.0);
+        dto.setExamDate(LocalDate.of(2026, 6, 15));
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(subjectRepository.findById(2L)).thenReturn(Optional.of(subject));
+        when(gradeRepository.save(any(Grade.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        GradeDTO created = gradeService.createGrade(dto);
+
+        assertThat(created.getExamDate()).isEqualTo(LocalDate.of(2026, 6, 15));
     }
 
     @Test

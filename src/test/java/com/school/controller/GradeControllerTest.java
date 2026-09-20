@@ -2,6 +2,8 @@ package com.school.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.school.dto.GradeDTO;
+import com.school.security.ParentAccessService;
+import com.school.security.TeacherAccessService;
 import com.school.service.GradeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +36,12 @@ class GradeControllerTest {
     @MockBean
     private GradeService gradeService;
 
+    @MockBean
+    private TeacherAccessService teacherAccessService;
+
+    @MockBean
+    private ParentAccessService parentAccessService;
+
     private GradeDTO sampleGrade() {
         GradeDTO dto = new GradeDTO();
         dto.setId(1L);
@@ -62,8 +70,9 @@ class GradeControllerTest {
     }
 
     @Test
-    void createGrade_asTeacher_returns200() throws Exception {
+    void createGrade_teacherOwnsSubject_returns200() throws Exception {
         GradeDTO dto = sampleGrade();
+        when(teacherAccessService.ownsSubject(5L, 2L)).thenReturn(true);
         when(gradeService.createGrade(any(GradeDTO.class))).thenReturn(dto);
 
         mockMvc.perform(post("/api/grades")
@@ -75,6 +84,44 @@ class GradeControllerTest {
     }
 
     @Test
+    void createGrade_teacherDoesNotOwnSubject_returns403() throws Exception {
+        GradeDTO dto = sampleGrade();
+        when(teacherAccessService.ownsSubject(5L, 2L)).thenReturn(false);
+
+        mockMvc.perform(post("/api/grades")
+                        .with(asUser(5L, "teacher1", "TEACHER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateGrade_teacherOwnsGradesActualSubject_returns200() throws Exception {
+        GradeDTO dto = sampleGrade();
+        // Ownership is checked against grade id 1's real subject, not whatever subjectId is in the body.
+        when(teacherAccessService.ownsGradeSubject(5L, 1L)).thenReturn(true);
+        when(gradeService.updateGrade(any(Long.class), any(GradeDTO.class))).thenReturn(dto);
+
+        mockMvc.perform(put("/api/grades/1")
+                        .with(asUser(5L, "teacher1", "TEACHER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateGrade_teacherDoesNotOwnGradesActualSubject_returns403() throws Exception {
+        GradeDTO dto = sampleGrade();
+        when(teacherAccessService.ownsGradeSubject(5L, 1L)).thenReturn(false);
+
+        mockMvc.perform(put("/api/grades/1")
+                        .with(asUser(5L, "teacher1", "TEACHER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void createGrade_asStudent_returns403() throws Exception {
         GradeDTO dto = sampleGrade();
 
@@ -83,6 +130,23 @@ class GradeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getGradesByStudentId_ownChild_asParent_returns200() throws Exception {
+        when(parentAccessService.isParentOf(20L, 1L)).thenReturn(true);
+        when(gradeService.getGradesByStudentId(1L)).thenReturn(List.of(sampleGrade()));
+
+        mockMvc.perform(get("/api/grades/student/1").with(asUser(20L, "parent1", "PARENT")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getAllGrades_asDeputyPrincipal_returns200() throws Exception {
+        when(gradeService.getAllGrades()).thenReturn(List.of(sampleGrade()));
+
+        mockMvc.perform(get("/api/grades").with(asUser(9L, "deputy1", "DEPUTY_PRINCIPAL")))
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.school.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -22,6 +23,7 @@ public class Grade {
     private Double marks;
     private Double maxMarks;
     private String grade; // A+, A, B+, etc.
+    private LocalDate examDate;
     private String remarks;
     private LocalDateTime createdAt;
 
@@ -54,6 +56,9 @@ public class Grade {
 
     public String getGrade() { return grade; }
     public void setGrade(String grade) { this.grade = grade; }
+
+    public LocalDate getExamDate() { return examDate; }
+    public void setExamDate(LocalDate examDate) { this.examDate = examDate; }
 
     public String getRemarks() { return remarks; }
     public void setRemarks(String remarks) { this.remarks = remarks; }

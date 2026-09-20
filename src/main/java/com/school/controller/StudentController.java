@@ -17,15 +17,18 @@ public class StudentController {
     @Autowired
     private StudentService studentService;
 
+    private static final String STAFF_READ = "hasRole('ADMIN') or hasRole('TEACHER') or hasRole('ACCOUNTANT') or hasRole('PRINCIPAL') or hasRole('DEPUTY_PRINCIPAL')";
+
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize(STAFF_READ)
     public ResponseEntity<List<StudentDTO>> getAllStudents() {
         List<StudentDTO> students = studentService.getAllStudents();
         return ResponseEntity.ok(students);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or (hasRole('STUDENT') and #id == authentication.principal.id)")
+    @PreAuthorize(STAFF_READ + " or (hasRole('STUDENT') and #id == authentication.principal.id)"
+            + " or (hasRole('PARENT') and @parentAccessService.isParentOf(authentication.principal.id, #id))")
     public ResponseEntity<StudentDTO> getStudentById(@PathVariable Long id) {
         return studentService.getStudentById(id)
                 .map(ResponseEntity::ok)
@@ -33,7 +36,7 @@ public class StudentController {
     }
 
     @GetMapping("/student-id/{studentId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize(STAFF_READ)
     public ResponseEntity<StudentDTO> getStudentByStudentId(@PathVariable String studentId) {
         return studentService.getStudentByStudentId(studentId)
                 .map(ResponseEntity::ok)
@@ -41,7 +44,7 @@ public class StudentController {
     }
 
     @GetMapping("/class/{classId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize(STAFF_READ)
     public ResponseEntity<List<StudentDTO>> getStudentsByClassId(@PathVariable Long classId) {
         List<StudentDTO> students = studentService.getStudentsByClassId(classId);
         return ResponseEntity.ok(students);

@@ -65,6 +65,7 @@ public class GradeService {
         grade.setMarks(gradeDTO.getMarks());
         grade.setMaxMarks(gradeDTO.getMaxMarks());
         grade.setGrade(calculateGrade(gradeDTO.getMarks(), gradeDTO.getMaxMarks()));
+        grade.setExamDate(gradeDTO.getExamDate());
         grade.setRemarks(gradeDTO.getRemarks());
 
         Grade savedGrade = gradeRepository.save(grade);
@@ -80,6 +81,7 @@ public class GradeService {
         grade.setMarks(gradeDTO.getMarks());
         grade.setMaxMarks(gradeDTO.getMaxMarks());
         grade.setGrade(calculateGrade(gradeDTO.getMarks(), gradeDTO.getMaxMarks()));
+        grade.setExamDate(gradeDTO.getExamDate());
         grade.setRemarks(gradeDTO.getRemarks());
 
         Grade updatedGrade = gradeRepository.save(grade);
@@ -125,6 +127,7 @@ public class GradeService {
         dto.setMarks(grade.getMarks());
         dto.setMaxMarks(grade.getMaxMarks());
         dto.setGrade(grade.getGrade());
+        dto.setExamDate(grade.getExamDate());
         dto.setRemarks(grade.getRemarks());
         return dto;
     }
